@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "authentication-service"
+version = "0.1.0"
+description = ""
+authors = ["ov3rwrite <ilyabelykh123@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.109.0"
+SQLAlchemy = "^2.0.25"
+fastapi-users = {extras = ["sqlalchemy"], version = "^12.1.2"}
+asyncpg = "^0.29.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
