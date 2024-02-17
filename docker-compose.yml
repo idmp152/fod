@@ -14,28 +14,65 @@ x-postgres-common:
 services:
   # delete-daemon:
   #   build: ./delete-daemon
-  #   ports:
-  #     - 5001:80
+
+  ingest-daemon:
+    build: 
+      dockerfile: ./ingest-daemon/Dockerfile
+      context: ./
+    volumes:
+      - ./ingest-daemon:/code/ingest-daemon
+      - ./fod_common:/code/fod_common
+    restart: always
+    depends_on:
+      - rabbitmq
+      - scality_s3
+      - postgres_primary
+    environment:
+      - AWS_ACCESS_KEY_ID=scalityaccesskey
+      - AWS_SECRET_ACCESS_KEY=scalitysecretkey
+      - PRESIGNED_URL_HOSTNAME=127.0.0.1
+
+  hangref-daemon:
+    build: 
+      dockerfile: ./hangref-daemon/Dockerfile
+      context: ./
+    volumes:
+      - ./hangref-daemon:/code/hangref-daemon
+      - ./fod_common:/code/fod_common
+    restart: always
+    depends_on:
+      - scality_s3
+      - postgres_primary
+    environment:
+      - AWS_ACCESS_KEY_ID=scalityaccesskey
+      - AWS_SECRET_ACCESS_KEY=scalitysecretkey
 
   # deleting-service:
   #   build: ./deleting-service
   #   ports:
-  #     - 5002:80
+  #     - 5001:80
 
-  # ingest-service:
-  #   build: ./ingest-service
-  #   ports:
-  #     - 5003:80
+  ingest-service:
+    build: 
+      dockerfile: ./ingest-service/Dockerfile
+      context: ./
+    volumes:
+      - ./ingest-service:/code/ingest-service
+    restart: always
+    ports:
+      - 5002:80
+    depends_on:
+      - rabbitmq
 
   # serving-service:
   #   build: ./serving-service
   #   ports:
-  #     - 5004:80
+  #     - 5003:80
   
   # authentication-service:
   #   build: ./authentication-service
   #   ports:
-  #     - 5005:80
+  #     - 5004:80
 
   rabbitmq:
     image: rabbitmq:3.11.28-management
@@ -45,13 +82,17 @@ services:
       - RABBITMQ_DEFAULT_USER=rmuser
       - RABBITMQ_DEFAULT_PASS=rmpassword
     ports:
-      - 5672:5672
       - 15672:15672
+    expose:
+      - 5672
 
   postgres_primary:
     <<: *postgres-common
+    expose:
+      - 5432
     ports:
       - 5432:5432
+    hostname: postgres_primary
     environment:
       POSTGRES_USER: user
       POSTGRES_DB: postgres
@@ -71,8 +112,9 @@ services:
 
   postgres_replica:
     <<: *postgres-common
-    ports:
-      - 5433:5432
+    hostname: postgres_replica
+    expose:
+      - 5432
     environment:
       PGUSER: replicator
       PGPASSWORD: replicator_password
@@ -96,8 +138,8 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - redis_dаta:/root/redis
       - ./redis.conf:/usr/local/etc/redis/redis.conf
+      - redis_data:/root/redis
     environment:
       - REDIS_PASSWORD=my-password
       - REDIS_PORT=6379
@@ -105,19 +147,22 @@ services:
 
   scality_s3:
     image: scality/s3server:latest
+    hostname: cloudserver-front
     restart: always
+    expose:
+      - 8000
     ports:
       - 8000:8000
     volumes:
       - s3data:/usr/src/app/localData
       - s3metadata:/usr/src/app/localMetadata
     environment:
-      - SCALITY_ACCESS_KEY_ID=newAccessKey
-      - SCALITY_SECRET_ACCESS_KEY=newSecretKey
+      - SCALITY_ACCESS_KEY_ID=scalityaccesskey
+      - SCALITY_SECRET_ACCESS_KEY=scalitysecretkey
 
 volumes:
-  postgresql_master_data:
-    driver: local
-  redis_dаta:
+  redis_data:
   s3data:
   s3metadata:
+  postgresql_master_data:
+    driver: local

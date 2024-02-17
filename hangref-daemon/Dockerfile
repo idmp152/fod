@@ -4,7 +4,7 @@ WORKDIR /tmp
  
 RUN pip install poetry
  
-COPY ./ingest-service/pyproject.toml ./ingest-service/poetry.lock* /tmp/
+COPY ./hangref-daemon/pyproject.toml ./hangref-daemon/poetry.lock* /tmp/
  
 RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
  
@@ -20,6 +20,6 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 ENV PYTHONPATH /code
 
-COPY ./ingest-service/ingest_service /code/ingest_service
+COPY ./hangref-daemon/hangref_daemon /code/hangref_daemon
 
-CMD ["uvicorn", "ingest_service.main:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["python", "-u", "hangref_daemon/main.py"]

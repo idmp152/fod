@@ -4,15 +4,13 @@ version = "0.1.0"
 description = ""
 authors = ["ov3rwrite <ilyabelykh123@gmail.com>"]
 license = "MIT"
-readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
 fastapi = "^0.109.0"
 redis = "^5.0.1"
-SQLAlchemy = "^2.0.25"
 boto3 = "^1.34.33"
-asyncpg = "^0.29.0"
+uvicorn = {extras = ["standard"], version = "^0.27.0.post1"}
 
 
 [build-system]
