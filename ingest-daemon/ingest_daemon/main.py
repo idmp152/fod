@@ -2,9 +2,10 @@ import asyncio
 import os
 import uuid
 from urllib import parse
+from datetime import timedelta
 
 import aio_pika
-import boto3
+from minio import Minio
 from tortoise import Tortoise
 
 from fod_common import models
@@ -12,19 +13,13 @@ from fod_common.enums import RPCStatus
 
 BUCKET_NAME = "images"
 async def request_upload(expiration: int) -> dict:
-    client = boto3.client("s3", endpoint_url="http://cloudserver-front:8000") #TODO: get from env
-    client.create_bucket(Bucket=BUCKET_NAME)
+    client = Minio("minio:9000", access_key=os.getenv("AWS_ACCESS_KEY_ID"), secret_key=os.getenv("AWS_SECRET_ACCESS_KEY"), secure=False)
+    if not client.bucket_exists(BUCKET_NAME):
+        client.make_bucket(BUCKET_NAME)
 
     post = await models.Post.create()
 
-    url = client.generate_presigned_url(
-        ClientMethod="put_object",
-        Params={
-            "Bucket": BUCKET_NAME,
-            "Key": str(post.id)
-        }, 
-        ExpiresIn=expiration
-    )
+    url = client.presigned_put_object(BUCKET_NAME, str(post.id), timedelta(milliseconds=expiration))
     post.bucket = BUCKET_NAME
     correlation_id = uuid.uuid4()
     post.upload_corr_id = correlation_id
@@ -33,7 +28,7 @@ async def request_upload(expiration: int) -> dict:
     await post.save()
 
     parsed_url = parse.urlparse(url)
-    url = parsed_url._replace(netloc=parsed_url.netloc.replace(parsed_url.hostname, os.getenv("PRESIGNED_URL_HOSTNAME"))).geturl()
+    url = parsed_url._replace(netloc=parsed_url.netloc.replace(parsed_url.hostname, os.getenv("PRESIGNED_URL_HOSTNAME")).replace(str(parsed_url.port), os.getenv("PRESIGNED_URL_PORT"))).geturl()
 
     return {"url": url, "correlation-id": correlation_id}
 

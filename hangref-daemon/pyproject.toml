@@ -8,8 +8,8 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = "^3.11"
 aio-pika = "^9.4.0"
-boto3 = "^1.34.33"
 tortoise-orm = {extras = ["asyncpg"], version = "^0.20.0"}
+minio = "^7.2.4"
 
 [build-system]
 requires = ["poetry-core"]

@@ -4,7 +4,7 @@ WORKDIR /tmp
  
 RUN pip install poetry
  
-COPY ./pyproject.toml ./poetry.lock* /tmp/
+COPY ./deleting-service/pyproject.toml ./deleting-service/poetry.lock* /tmp/
  
 RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
  
@@ -14,8 +14,12 @@ WORKDIR /code
 
 COPY --from=requirements-stage /tmp/requirements.txt /code/requirements.txt
 
+COPY ./fod_common /code/fod_common
+
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
-COPY ./app /code/app
+ENV PYTHONPATH /code
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
+COPY ./deleting-service/deleting_service /code/deleting_service
+
+CMD ["uvicorn", "deleting_service.main:app", "--host", "0.0.0.0", "--port", "80"]

@@ -18,6 +18,7 @@ class Post(Model):
     bucket = fields.TextField(default="")
     author_id = fields.ForeignKeyField("models.User", related_name="posts", null=True)
     pending_upload = fields.BooleanField(default=True)
+    pending_delete = fields.BooleanField(default=False)
     created_timestamp = fields.DatetimeField(auto_now_add=True)
     upload_corr_id = fields.TextField(default="")
     upload_expiration = fields.IntField(null=True)
