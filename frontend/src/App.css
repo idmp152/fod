@@ -1,0 +1,40 @@
+* {
+    margin: 0;
+}
+
+:root {
+    --card_width: 250px;
+    --row_increment: 10px;
+    --card_border_radius: 16px;
+    --card_small: 26;
+    --card_med: 33;
+    --card_large: 45;
+}
+
+.app {
+    background-color: #1c1c24;
+    height: 100%;
+}
+
+.app__header {
+    background-color: #16161d;
+    object-fit: contain;
+    padding: 20px;
+}
+
+.app__headerImage {
+    width: 100px;
+}
+
+.app__pinContainer {
+    margin: 0;
+    padding: 0;
+    width: '80vw';
+    display: 'grid';
+    grid-template-columns: 'repeat(auto-fill, 250px)';
+    grid-auto-rows: '10px';
+    position: 'absolute';
+    left: '50%';
+    transform: 'translateX(-50%)';
+    justify-content: 'center';
+}

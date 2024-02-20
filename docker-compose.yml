@@ -111,6 +111,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    environment:
+      - AWS_ACCESS_KEY_ID=s3accesskey
+      - AWS_SECRET_ACCESS_KEY=s3secretkey
+      - PRESIGNED_URL_HOSTNAME=localhost
+      - PRESIGNED_URL_PORT=8000
 
   authentication-service:
     build: 
@@ -235,6 +240,11 @@ services:
       - ingest-service
       - serving-service
       - authentication-service
+
+  frontend:
+    build: ./frontend
+    expose:
+      - 3000
 
 volumes:
   redis_data:

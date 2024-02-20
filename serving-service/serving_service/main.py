@@ -4,9 +4,12 @@ from datetime import timedelta
 
 import redis.asyncio as redis
 from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from minio import Minio
 from pydantic import BaseModel
 from tortoise import Tortoise
+from tortoise.queryset import QuerySet
+from urllib import parse
 
 from fod_common import models
 
@@ -40,7 +43,7 @@ async def lifespan(app: FastAPI):
         modules={"models": ["fod_common.models"]}
     )
 
-    shared_pool["redis"] = redis.Redis(host="redis", port=6379)
+    shared_pool["redis"] = redis.Redis(host="redis", port=6379, decode_responses=True)
     await shared_pool["redis"].config_set("maxmemory-policy", "allkeys-lru")
 
     yield
@@ -51,10 +54,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan, root_path="/serving")
 s3_client = Minio("minio:9000", access_key=os.getenv("AWS_ACCESS_KEY_ID"), secret_key=os.getenv("AWS_SECRET_ACCESS_KEY"), secure=False)
 
+
 CACHE_EXPIRATION = timedelta(hours=2)
 def map_db_post_to_response(post: models.Post) -> Post:
     url = s3_client.presigned_get_object(post.bucket, post.filename, expires=CACHE_EXPIRATION)
-    return Post(id=post.id, name=post.name, description=post.description, image_url=url, created_timestamp=int(post.created_timestamp.timestamp()))
+    parsed_url = parse.urlparse(url)
+    url = parsed_url._replace(netloc=parsed_url.netloc.replace(parsed_url.hostname, os.getenv("PRESIGNED_URL_HOSTNAME")).replace(str(parsed_url.port), os.getenv("PRESIGNED_URL_PORT"))).geturl()
+    return Post(id=post.id, name=post.name, description=post.description, image_url=url, created_timestamp=int(post.created_timestamp.timestamp()), author_id=post.author_id)
 
 
 @app.get("/requestPost", response_model=Post)
@@ -65,30 +71,30 @@ async def request_post(post_id: int) -> Post:
     
     cache: redis.Redis = shared_pool["redis"]
 
-    result = cache.hgetall(f"posts:{post_id}")
+    result = await cache.hgetall(f"posts:{post_id}")
 
     if not result:
-        result = map_db_post_to_response(post).model_dump_json()
-        cache.hset(f"posts:{post_id}", mapping=result)
-        cache.expire(f"posts:{post_id}", CACHE_EXPIRATION)
+        result = map_db_post_to_response(post).model_dump()
+        await cache.hset(f"posts:{post_id}", mapping=result)
+        await cache.expire(f"posts:{post_id}", CACHE_EXPIRATION)
 
     return result
 
 MAX_LIMIT = 100
 @app.get("/requestFeed")
-async def request_feed(limit: int = 20, start: int = 0) -> list[Post]:
+async def request_feed(limit: int = 20, page: int = 1) -> list[Post]:
     if limit > MAX_LIMIT:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Feed limit must not be bigger than {MAX_LIMIT}.")
     
     result = []
-    posts = await models.Post.order_by("-created_timestamp").limit(limit).offset(start)
+    posts = await QuerySet(models.Post).order_by("-created_timestamp").limit(limit).offset(limit * (page - 1))
     for post in posts:
         result.append(map_db_post_to_response(post))
 
     return result
 
 @app.get("/searchPosts")
-async def search_posts(name: str = "", description: str = "", author_id: int = 0) -> list[Post]:
+async def search_posts(name: str = "", description: str = "", author_id: int = 0, limit: int = 20, page: int = 1) -> list[Post]:
     if not any((name, description, author_id)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one search parameter must be present.")
     
@@ -100,7 +106,7 @@ async def search_posts(name: str = "", description: str = "", author_id: int = 0
     if author_id:
         kwargs["author_id"] = author_id
 
-    posts = await models.Post.filter(**kwargs)
+    posts = await models.Post.filter(**kwargs).order_by("-created_timestamp").limit(limit).offset(limit * (page - 1))
     result = []
     for post in posts:
         result.append(map_db_post_to_response(post))
@@ -116,12 +122,12 @@ async def request_user(user_id: int) -> User:
     
     cache: redis.Redis = shared_pool["redis"]
 
-    result = cache.hgetall(f"users:{user_id}")
+    result = await cache.hgetall(f"users:{user_id}")
 
     if not result:
-        result = User(id=user_id, name=user.username, bio=user.bio, avatar_url=user.avatar_url).model_dump_json()
-        cache.hset(f"users:{user_id}", mapping=result)
-        cache.expire(f"users:{user_id}", CACHE_EXPIRATION)
+        result = User(id=user_id, name=user.username, bio=user.bio, avatar_url=user.avatar_url).model_dump()
+        await cache.hset(f"users:{user_id}", mapping=result)
+        await cache.expire(f"users:{user_id}", CACHE_EXPIRATION)
 
     return result
 
@@ -133,11 +139,21 @@ async def request_comment(comment_id: int) -> Comment:
     
     cache: redis.Redis = shared_pool["redis"]
 
-    result = cache.hgetall(f"comments:{comment_id}")
+    result = await cache.hgetall(f"comments:{comment_id}")
 
     if not result:
-        result = Comment(id=comment_id, content=comment.content, author_id=comment.author_id, post_id=comment.post_id).model_dump_json()
-        cache.hset(f"comments:{comment_id}", mapping=result)
-        cache.expire(f"comments:{comment_id}", CACHE_EXPIRATION)
+        result = Comment(id=comment_id, content=comment.content, author_id=comment.author_id, post_id=comment.post_id).model_dump()
+        await cache.hset(f"comments:{comment_id}", mapping=result)
+        await cache.expire(f"comments:{comment_id}", CACHE_EXPIRATION)
 
     return result
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS", "DELETE", "PATCH", "PUT"],
+    allow_headers=["Content-Type", "Set-Cookie", "Access-Control-Allow-Headers", "Access-Control-Allow-Origin",
+                   "Authorization"],
+)
