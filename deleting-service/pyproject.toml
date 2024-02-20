@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "ingest-service"
+name = "deleting-service"
 version = "0.1.0"
 description = ""
 authors = ["ov3rwrite <ilyabelykh123@gmail.com>"]
@@ -12,6 +12,7 @@ fastapi = "^0.109.0"
 uvicorn = {extras = ["standard"], version = "^0.27.0.post1"}
 pydantic = "^2.6.1"
 tortoise-orm = {extras = ["asyncpg"], version = "^0.20.0"}
+redis = "^5.0.1"
 
 
 [build-system]

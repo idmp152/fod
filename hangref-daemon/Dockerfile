@@ -18,8 +18,10 @@ COPY ./fod_common /code/fod_common
 
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
+RUN pip install --no-cache-dir --upgrade -r /code/fod_common/requirements.txt
+
 ENV PYTHONPATH /code
 
 COPY ./hangref-daemon/hangref_daemon /code/hangref_daemon
 
-CMD ["python", "-u", "hangref_daemon/main.py"]
+CMD ["python", "hangref_daemon/main.py"]

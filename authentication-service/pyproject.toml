@@ -8,8 +8,12 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = "^3.11"
 fastapi = "^0.109.0"
-fastapi-users = {extras = ["sqlalchemy"], version = "^12.1.2"}
 uvicorn = {extras = ["standard"], version = "^0.27.0.post1"}
+pydantic = "^2.6.1"
+tortoise-orm = {extras = ["asyncpg"], version = "^0.20.0"}
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+python-multipart = "^0.0.9"
 
 
 [build-system]

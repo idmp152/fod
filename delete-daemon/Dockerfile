@@ -4,7 +4,7 @@ WORKDIR /tmp
  
 RUN pip install poetry
  
-COPY ./pyproject.toml ./poetry.lock* /tmp/
+COPY ./delete-daemon/pyproject.toml ./delete-daemon/poetry.lock* /tmp/
  
 RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
  
@@ -14,8 +14,14 @@ WORKDIR /code
 
 COPY --from=requirements-stage /tmp/requirements.txt /code/requirements.txt
 
+COPY ./fod_common /code/fod_common
+
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
-COPY ./app /code/app
+RUN pip install --no-cache-dir --upgrade -r /code/fod_common/requirements.txt
 
-CMD ["python", "main.py"]
+ENV PYTHONPATH /code
+
+COPY ./delete-daemon/delete_daemon /code/delete_daemon
+
+CMD ["python", "delete_daemon/main.py"]

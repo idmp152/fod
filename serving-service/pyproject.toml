@@ -9,8 +9,8 @@ license = "MIT"
 python = "^3.11"
 fastapi = "^0.109.0"
 redis = "^5.0.1"
-boto3 = "^1.34.33"
 uvicorn = {extras = ["standard"], version = "^0.27.0.post1"}
+minio = "^7.2.4"
 
 
 [build-system]

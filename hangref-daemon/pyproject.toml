@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "ingest-daemon"
+name = "hangref-daemon"
 version = "0.1.0"
 description = ""
 authors = ["ov3rwrite <ilyabelykh123@gmail.com>"]

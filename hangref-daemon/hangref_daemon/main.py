@@ -4,8 +4,8 @@ from itertools import groupby
 
 from minio import Minio, deleteobjects
 from tortoise import Tortoise
-from tortoise.transactions import in_transaction
 from tortoise.expressions import Q
+from tortoise.transactions import in_transaction
 
 from fod_common import models
 
@@ -21,12 +21,12 @@ async def main() -> None:
         client = Minio("minio:9000", access_key=os.getenv("AWS_ACCESS_KEY_ID"), secret_key=os.getenv("AWS_SECRET_ACCESS_KEY"), secure=False)
         while True:
             async with in_transaction() as conn:
-                records = (await conn.execute_query("SELECT id, bucket FROM post WHERE EXTRACT(EPOCH FROM CURRENT_TIMESTAMP-created_timestamp)*1000 > upload_expiration AND pending_upload = TRUE"))[1]
+                records = (await conn.execute_query("SELECT id, bucket, filename FROM post WHERE EXTRACT(EPOCH FROM CURRENT_TIMESTAMP-created_timestamp)*1000 > upload_expiration AND pending_upload = TRUE"))[1]
                 records.sort(key=lambda x: x["bucket"])
                 for bucket, files in groupby(records, lambda x: x["bucket"]):
                     client.remove_objects(
                         bucket,
-                        [deleteobjects.DeleteObject(str(x["id"])) for x in files],
+                        [deleteobjects.DeleteObject(str(x["filename"])) for x in files],
                     )
                 ids = [i["id"] for i in records]
                 await models.Post.filter(Q(id__in=ids)).delete()

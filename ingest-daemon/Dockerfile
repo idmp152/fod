@@ -18,6 +18,8 @@ COPY ./fod_common /code/fod_common
 
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
+RUN pip install --no-cache-dir --upgrade -r /code/fod_common/requirements.txt
+
 ENV PYTHONPATH /code
 
 COPY ./ingest-daemon/ingest_daemon /code/ingest_daemon

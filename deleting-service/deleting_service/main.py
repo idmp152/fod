@@ -1,33 +1,44 @@
 from contextlib import asynccontextmanager
 
 import aio_pika
-from fastapi import FastAPI
+import redis
+from fastapi import FastAPI, HTTPException, status
+from tortoise import Tortoise
 
-from fod_common import models
+from fod_common import models, authentication
 
-
-conn_pool: dict = {}
+shared_pool: dict = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    conn_pool["rmq_conn"] = await aio_pika.connect_robust(
-        "amqp://rmuser:rmpassword@rabbitmq/", #TODO: get userpass from the config
-        client_properties={"connection_name": "caller"}
+    shared_pool["rmq_conn"] = await aio_pika.connect_robust("amqp://rmuser:rmpassword@rabbitmq/") #TODO: get userpass from the config
+    shared_pool["rmq_channel"] = await shared_pool["rmq_conn"].channel()
+    shared_pool["rmq_master"] = aio_pika.patterns.Master(shared_pool["rmq_channel"])
+
+    await Tortoise.init(
+        db_url="postgres://user:password@postgres_primary:5432/postgres", #TODO: get from env
+        modules={"models": ["fod_common.models"]}
     )
-    print("connection initialized")
+    await Tortoise.generate_schemas()
+
     yield
-    print("connection deinitialized")
-    await conn_pool["rmq_conn"].close()
-    conn_pool.clear()
 
-app = FastAPI(lifespan=lifespan)
+    await Tortoise.close_connections()
+    await shared_pool["rmq_conn"].close()
+    shared_pool.clear()
 
-PENDING_UPLOAD_EXPIRATION = 600000
-@app.get("/api/requestDelete")
-async def request_upload(post_id: int):
-    async with conn_pool["rmq_conn"]:
-        channel = await conn_pool["rmq_conn"].channel()
+app = FastAPI(lifespan=lifespan, root_path="/deleting")
 
-        master = aio_pika.patterns.Master(channel)
-
-        await master.proxy.request_delete(post_id=post_id)
+@app.post("/requestDelete")
+async def request_upload(user: authentication.user_dependency, post_id: int):
+    post = await models.Post.filter(id=post_id).first()
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found.")
+    if post.author_id != user["user_id"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not the author.")
+    
+    cache: redis.Redis = shared_pool["redis"]
+    cache.delete(f"posts:{post_id}")
+    post.pending_delete = True
+    await post.save()
+    await shared_pool["rmq_master"].proxy.request_delete(post_id=post_id)
